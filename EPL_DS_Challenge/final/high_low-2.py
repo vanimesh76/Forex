@@ -12,10 +12,10 @@ mt5.initialize()
 def get_values(symbol):
     timezone = pytz.timezone("Etc/UTC")
     x = datetime.now()
-    utc_from = datetime(2021, 6, 30, tzinfo=timezone)
+    utc_from = datetime(2021, 6, 15, tzinfo=timezone)
     utc_to = datetime(x.year, x.month+1, x.day+1, tzinfo=timezone)
     # utc_to = datetime(x.year, x.month+1, 1, tzinfo=timezone)
-    rates = mt5.copy_rates_range(symbol, mt5.TIMEFRAME_H1, utc_from, utc_to)
+    rates = mt5.copy_rates_range(symbol, mt5.TIMEFRAME_M30, utc_from, utc_to)
 
     rates_frame = pd.DataFrame(rates)
     rates_frame = rates_frame.drop(['high', 'low','tick_volume', 'spread', 'real_volume'], axis=1)
@@ -109,121 +109,6 @@ def dry_run(symbol, a, c):
 
     return [symbol, newHigh, newLow, oldHigh, oldLow, check, timee]
 
-def dry_run_2(symbol, a, c):
-    df = a.iloc[c:-1]
-    up = 0
-    newHigh = 0
-    newLow = 0
-    oldHigh = 0
-    oldLow = 0
-    check = 1
-    final = 0
-    highest = 0
-    tempHigh = 0
-
-
-    row = a.iloc[c:].iloc[0]
-    final = 0
-    lot = 0.02
-    oldhighset = 1
-    checkLow = 0
-    finalLow = 0
-    
-    row = a.iloc[c:].iloc[0]
-    if row.close > row.open:
-        newHigh = row.close
-        newLow = row.open
-    else:
-        newHigh = row.open
-        newLow = row.close
-        
-    oldLow = 0
-    oldHigh = newHigh
-    print(oldHigh)
-        
-    #for a rising market
-    for index, row in df.iterrows():
-        print(index)
-        print("close--{0:.5f}".format(row.close))
-        print("open--{0:.5f}".format(row.open))
-        print("newHigh--{0:.5f}".format(newHigh))
-        print("newLow--{0:.5f}".format(newLow))
-        print("oldHigh--{0:.5f}".format(oldHigh))
-        print("oldLow--{0:.5f}".format(oldLow))
-
-
-        if row.close > newHigh:
-            print("1")
-            newHigh = row.close
-            newLow = row.open
-
-            if oldhighset == 1:
-                print("alpha")
-                oldLow = row.open #Set a counter here to wait for two up candles
-                finalLow = 0
-                checkLow = 1
-                oldhighset = 0
-
-        if row.close > oldHigh and row.close > row.open and check == 1:
-            print("beta")
-            if final == 1: #entering market after second candle consiqutively is up
-                print(index, row.close, oldHigh)
-                check = 0
-                pass
-            #Buy Signal
-
-            final = final+1
-
-        if row.close < newHigh and row.open > row.close:
-            print("2")
-            newLow = row.close
-            newHigh = row.open
-            if check == 0:
-                print("3")
-                oldHigh = newHigh
-                oldhighset = 1
-                timee = index
-                check = 1  
-            final = 0
-
-            if row.close < oldLow:
-                print("4")
-                if finalLow == 0:
-                    print("5")
-                    tempHigh = row.open
-                finalLow  = finalLow + 1
-
-
-        if row.close > oldLow:
-            print("6")
-            checkLow = 0
-
-        if check == 1 and finalLow == 2:
-            print("7")
-            oldHigh = tempHigh
-            checkLow = 1 #indicator that SELL has to be executed
-            print("Temp-->{}--{}".format(oldHigh, index))
-
-
-        if checkLow == 1 and finalLow == 2:
-            print("8")
-            # finalLow = 0
-            oldhighset = 1
-            checkLow = 0
-            #SELL call
-
-
-
-        if row.close < newHigh and row.open < row.close:
-            print("9")
-            newLow = row.open
-            newHigh = row.close
-
-    return [symbol, newHigh, newLow, oldHigh, oldLow, check, timee]
-
-
-
-
 def Action_close(ticket_no, symbol, signal, lot):
     try:
         a = [[mt5.symbol_info_tick(symbol).ask, mt5.ORDER_TYPE_BUY], [mt5.symbol_info_tick(symbol).bid, mt5.ORDER_TYPE_SELL]]
@@ -248,7 +133,7 @@ def Action_close(ticket_no, symbol, signal, lot):
     except Exception as e:
         print("Action_close")
         print(e)
- 
+
 def Profit_checker(ticket_no, symbol, signal, lot):
     print(ticket_no)
     count = 0
@@ -306,29 +191,35 @@ def price_action(symbol, lot, ask, bid, order_type):
 def run(var):
     try:
         symbol, newHigh, newLow, oldHigh, oldLow, check, timee = var
+        # check = 0
         final = 0
+        signal = 1
         lot = 0.02
-        oldhighset = 0
-        checkLow = 0
-        finalLow = 0
         
         while True:
             row = get_values_1(symbol).iloc[-2]
+            # order_type = mt5.ORDER_TYPE_BUY
+            # ask = row.close
+            # bid = oldHigh
+            # buy_profit = price_action(symbol, lot, ask, bid, order_type)
+            # print(buy_profit)
+
+            #for a rising market
+            # for index, row in df.iterrows():
 
             if row.close > newHigh:
-                # if oldLow == 0:
-                #     oldLow = newLow
+                if oldLow == 0:
+                    oldLow = newLow
                 newHigh = row.close
                 newLow = row.open
 
-                if oldhighset == 1:
-                    oldLow = row.open #Set a counter here to wait for two up candles
-                    oldhighset = 0
+            # if highest < newHigh:
+            #     highest = newHigh
 
-            if row.close > oldHigh and row.close > row.open and check == 1:
+            if row.close > oldHigh and row.close > row.open and check == 0:
                 if final == 1: #entering market after second candle consiqutively is up
-                    
-                    q = 1 #Locks the meta trader for trading and prevents profit checker to send multiple requests
+                    check = 1 #keeps note of shot fired already i.e. trade taken already for that oldHigh
+                    q = 1
 
                     order_type = mt5.ORDER_TYPE_BUY
                     ask = row.close
@@ -337,62 +228,32 @@ def run(var):
                     buy_profit = price_action(symbol, lot, ask, bid, order_type)
                     print(buy_profit)
                     if buy_profit < 1.5:
-                        signal = 1
                         result = Action(symbol, lot, signal)
-                        check = 0 #keeps note of shot fired already i.e. trade taken already for that oldHigh
                         p1 = threading.Thread(target=Profit_checker, args=(result.order, symbol, signal, lot))
                         p1.start()
-                        # oldLow = 0
+                        oldLow = 0
                     q = 0
                 final = final+1
 
-            # if row.close < newHigh and row.close < newLow:
-            #     newLow = row.close
-            #     newHigh = row.open  #Check and Final will be automatically set to zero only when the trades close, NOT HERE
-                # if check == 0:
-                #     oldHigh = newHigh
-                #     check = 1
-                # final = 0 
-
-            elif row.close < newHigh and row.open > row.close:
+            if row.close < newHigh and row.close < newLow:
                 newLow = row.close
-                newHigh = row.open
-                if check == 0:
+                newHigh = row.open  #Check and Final will be automatically set to zero only when the trades close, NOT HERE
+                if check == 1:
                     oldHigh = newHigh
-                    oldhighset = 1
-                    check = 1  
-                final = 0
-
-                if row.close < oldLow:
-                    checkLow = 1
-                    finalLow  = finalLow + 1
+                    check = 0    
 
 
             elif row.close < newHigh and row.open < row.close:
                 newLow = row.open
                 newHigh = row.close
-
-            if checkLow == 1 and final > 1: #ALSO Test for final = 0
-                q = 1 #Locks the meta trader for trading and prevents profit checker to send multiple requests
-
-                # order_type = mt5.ORDER_TYPE_SELL
-                # ask = row.close
-                # bid = oldLow
-                # print(ask, bid)
-                # buy_profit = price_action(symbol, lot, ask, bid, order_type)
-                # print(buy_profit)
-                # if buy_profit < 1.5:
-                #     signal = 0
-                #     result = Action(symbol, lot, signal)
-                #     p1 = threading.Thread(target=Profit_checker, args=(result.order, symbol, signal, lot))
-                #     p1.start()
-                checkLow = 0
-                q = 0
+            elif row.close < newHigh and row.open > row.close:
+                newLow = row.close
+                newHigh = row.open
+                final = 0
 
 
-
-            # if oldLow > newLow:
-            #     oldLow = newLow
+            if oldLow > newLow:
+                oldLow = newLow
 
             time.sleep(90)
     except Exception as e:
@@ -406,23 +267,22 @@ def manage(symbol):
     #     if get_values(symbol).iloc[-2].close != a.iloc[-2].close:
     #         print("not equal start")
     #         break
-    # try:
+    try:
 
         a = get_values(symbol)
-        c  = 1
+        c  = 0
         while True:
-            if a.iloc[c].name == datetime(2021, 7, 1):
+            if a.iloc[c].name == datetime(2021, 7, 8):
                 break
             c+=1
 
-        # var = dry_run(symbol,a, c)
-        var = dry_run_2(symbol,a ,c)
+        var = dry_run(symbol,a, c)
         print(var)
-        # run(var)
-    # except Exception as e:
-    #     print("Manage")
-    #     print(e)
+        run(var)
+    except Exception as e:
+        print("Manage")
+        print(e)
 
-for symbol in ['GBPUSD']:#, 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
+for symbol in ['GBPUSD', 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
     p2 = threading.Thread(target=manage, args=(symbol,))
     p2.start()
