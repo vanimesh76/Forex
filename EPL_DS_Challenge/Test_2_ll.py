@@ -125,7 +125,7 @@ while True:
             bid=rates_frame.iloc[-1].close
 
         if rates_frame.iloc[-2].close > sett and \
-            rates_frame.iloc[-3].close < sett and \
+            rates_frame.iloc[-2].open < sett and \
             dictt[symbol][0] == 0 and \
             rates_frame.iloc[-1].close > rates_frame.iloc[-2].close:
 

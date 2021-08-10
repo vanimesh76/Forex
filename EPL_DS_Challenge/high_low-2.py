@@ -150,16 +150,21 @@ def dry_run_2(symbol, a, c):
         print("newLow--{0:.5f}".format(newLow))
         print("oldHigh--{0:.5f}".format(oldHigh))
         print("oldLow--{0:.5f}".format(oldLow))
+        print("tempHigh--{0:.5f}".format(tempHigh))
 
+        # if row.close > newHigh and row.close < oldHigh:
+        #     print("1")
+        #     newHigh = row.close
+        #     newLow = row.open
 
-        if row.close > newHigh:
+        if row.close > newHigh: #and row.close > oldHigh:
             print("1")
             newHigh = row.close
             newLow = row.open
 
             if oldhighset == 1:
                 print("alpha")
-                oldLow = row.open #Set a counter here to wait for two up candles
+                # oldLow = row.open #Set a counter here to wait for two up candles
                 finalLow = 0
                 checkLow = 1
                 oldhighset = 0
@@ -218,6 +223,7 @@ def dry_run_2(symbol, a, c):
             print("9")
             newLow = row.open
             newHigh = row.close
+            oldLow = row.open #new
 
     return [symbol, newHigh, newLow, oldHigh, oldLow, check, timee]
 

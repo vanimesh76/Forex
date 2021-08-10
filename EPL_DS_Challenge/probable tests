@@ -1,0 +1,3 @@
+https://medium.com/codex/bitcoin-trade-automation-with-awesome-oscillator-in-python-51f2c52c5b25
+1). RSI(10) crosses below 30 place sell order EURGBP
+2). Candle crosses SMA then pull back comes but doesn't cross SMA then place a BUY
