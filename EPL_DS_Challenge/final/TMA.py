@@ -7,42 +7,29 @@ import pandas_ta as pta
 import threading
 
 mt5.initialize()
+global df
 
 def get_values(symbol):
     timezone = pytz.timezone("Etc/UTC")
     x = datetime.now()
     utc_from = datetime(x.year, x.month, x.day-1, tzinfo=timezone)
     utc_to = datetime(x.year, x.month, x.day+1, tzinfo=timezone)
-    rates = mt5.copy_rates_range(symbol, mt5.TIMEFRAME_M1, utc_from, utc_to)
+    rates = mt5.copy_rates_range(symbol, mt5.TIMEFRAME_M2, utc_from, utc_to)
 
     rates_frame = pd.DataFrame(rates)
     rates_frame = rates_frame.drop(['tick_volume', 'spread', 'real_volume'], axis=1)
     # convert time in seconds into the datetime format
+    rates_frame['clsma']= rates_frame['close'].rolling(window=8).mean()
+    rates_frame['smaC']= rates_frame['clsma'].rolling(window=8).mean()
+
+
+    rates_frame['clsma']= rates_frame['open'].rolling(window=8).mean()
+    rates_frame['smaO']= rates_frame['clsma'].rolling(window=8).mean()
+
     rates_frame['time']=pd.to_datetime(rates_frame['time'], unit='s')
     rates_frame = rates_frame.set_index('time')
-    rates_frame = rates_frame.drop(['high', 'low'], axis=1)
+    rates_frame = rates_frame.drop(['high', 'low', 'clsma'], axis=1)
     return rates_frame
-
-def get_rsi(close, lookback):
-    ret = close.diff()
-    
-    up = []
-    down = []
-    for i in range(len(ret)):
-        if ret[i] < 0:
-            up.append(0)
-            down.append(ret[i])
-        else:
-            up.append(ret[i])
-            down.append(0)
-    up_series = pd.Series(up)
-    down_series = pd.Series(down).abs()
-    up_ewm = up_series.ewm(com = lookback - 1, adjust = False).mean()
-    down_ewm = down_series.ewm(com = lookback - 1, adjust = False).mean()
-    rs = up_ewm/down_ewm
-    rsi = 100 - (100 / (1 + rs))
-    rsi_df = pd.DataFrame(rsi).rename(columns = {0:'rsi'}).set_index(close.index)
-    return rsi_df
 
 
 
@@ -66,9 +53,9 @@ def Action_close(ticket_no, symbol, signal, lot):
             "type_filling": mt5.ORDER_FILLING_RETURN,
         }
         result=mt5.order_send(request)
-        # dictt[symbol][signal] = 0
+        return result
     except Exception as e:
-        print("Action_close")
+        print("Action_close_Error")
         print(e)
 
 def Action(symbol, lot, signal):
@@ -77,7 +64,7 @@ def Action(symbol, lot, signal):
 
         a = [[mt5.ORDER_TYPE_SELL, mt5.symbol_info_tick(symbol).bid], [mt5.ORDER_TYPE_BUY, mt5.symbol_info_tick(symbol).ask]]
         price = a[signal][1]
-        deviation = 200
+        deviation = 1000
         
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -101,66 +88,74 @@ def price_action(symbol, lot, ask, bid, order_type):
     buy_profit=mt5.order_calc_profit(order_type,symbol,lot,ask,bid)
     return buy_profit
 
-def slope(x1, y1, x2, y2):
-    return (y2-y1)/(x2-x1)
+def follow(lot, signal, symbol, ticket, buy_price, order_type):
+    cl = buy_price
+    op = df.iloc[-2].open
+    while True:
+        # if df.iloc[-2].close != cl or df.iloc[-2].open != op:
+        sell_price = df.iloc[-1].close
+        pp = price_action(symbol, lot, buy_price, sell_price, order_type)
+        if pp >= 0.10:
+            result = Action_close(ticket, symbol, signal, lot)
+            print(f"Close  Symbol-->{symbol} ||| result_comment-->{result.comment}")
+            if result.comment == "Requote":
+                result = Action_close(ticket, symbol, signal, lot)
+                print(f"Close  Symbol-->{symbol} ||| result_comment-->{result.comment} ||| Re-Quoted")
+                pass
+            else:
+                break
 
-def go(df):
-    g = []
-    for i in range(0, len(df)):
-        if df.iloc[i].rsi >= 60.0:
-            g.append(slope(0, df.iloc[i-5].rsi, 5, df.iloc[i].rsi))
-        else:
-            g.append(0)
-    return g
 
 def run(symbol):
     check = 0
     lot = 0.02
+    cl = df.iloc[-2].close
+    op = df.iloc[-2].open
+    check = 0
+    checks = 0
     print(symbol)
     while True:
+        if df.iloc[-2].close != cl or df.iloc[-2].open != op:
+            if df.iloc[-2].smaC < df.iloc[-2].smaO and check == 0:
+                cl = df.iloc[-2].close
+                op = df.iloc[-2].open
+                signal = 0 #SELL
+                result = Action(symbol, lot, signal)
+                p2 = threading.Thread(target=follow, args=(lot, signal, symbol, result.order, result.price, mt5.ORDER_TYPE_SELL))
+                p2.start()
+                print(f"Symbol-->{symbol} ||| Ticket_No-->{result.order}")
+                check = 1
+                checks = 0
+            elif df.iloc[-2].smaC > df.iloc[-2].smaO and checks == 0:
+                cl = df.iloc[-2].close
+                op = df.iloc[-2].open
+                signal = 1 #BUY
+                result = Action(symbol, lot, signal)
+                p3 = threading.Thread(target=follow, args=(lot, signal, symbol, result.order, result.price, mt5.ORDER_TYPE_BUY))
+                p3.start()
+                print(f"Symbol-->{symbol} ||| Ticket_No-->{result.order}")
+                checks = 1
+                check = 0
+
+
+def data_fetch(symbol):
+    global df
+    while True:
         df = get_values(symbol)
-        df['rsi'] = get_rsi(df['close'], 30)
-        df['smaL']= df['rsi'].rolling(window=2).mean()
-        df['slope'] = go(df)
-
-        if df.iloc[-2].slope > 1.9 and df.iloc[-2].slope > 0.0 and df.iloc[-3].slope == 0.0 \
-            and check == 0:
-            buy_price = df.iloc[-2].close
-            signal = 0 #SELL
-            result = Action(symbol, lot, signal)
-            print(f"Symbol-->{symbol} ||| Ticket_No-->{result.order}")
-            check = 1  
-
-        elif check == 1:
-            
-            signal = 0
-            sell_price = df.iloc[-2].close
-            pp = price_action(symbol, lot, buy_price, sell_price, mt5.ORDER_TYPE_SELL)
-
-            if pp < -1.3:
-                result = Action_close(result.order, symbol, signal, lot)
-                try:
-                    print(f"Close  Symbol-->{symbol} ||| result_comment-->{result.comment}")
-                except:
-                    print(result)
-                check = 0
-
-            if df.iloc[-2].rsi <= 41.0:
-                Action_close(result.order, symbol, signal, lot)
-                try:
-                    print(f"Close  Symbol-->{symbol} ||| result_comment-->{result.comment}")
-                except:
-                    print(result)
-                check = 0
-        time.sleep(3)
 
 
-for symbol in ['GBPUSD', 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
+for symbol in ['GBPUSD']:#, 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
+    df = get_values(symbol)
+    p5 = threading.Thread(target=data_fetch, args=(symbol,))
+    p5.start()
     p2 = threading.Thread(target=run, args=(symbol,))
     p2.start()
+
 
 #EURGBP
 #When reaching up wait for the AO to turn red when RSI above 60 and wait for Either RSI to fall below 60 or AO to turn RED for 
 #enough candles Initiate Sell Signal
 
 #BUY_Signal when RSI crosses Above 40 mark wait for it to reach 60
+
+#-215.66

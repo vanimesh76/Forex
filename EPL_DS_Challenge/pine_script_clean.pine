@@ -1,0 +1,54 @@
+
+  
+//@version=3
+//
+
+strategy(title = "Open Close Cross Strategy R5.1 revised by JustUncleL", shorttitle = "OCC Strategy R5.1", overlay = true, 
+  pyramiding = 0, default_qty_type = strategy.percent_of_equity, default_qty_value = 10, calc_on_every_tick=false)
+
+
+useRes      = input(defval = true, title = "Use Alternate Resolution?")
+intRes      = input(defval = 3,    title = "Multiplier for Alernate Resolution")
+stratRes    = tostring(60*3,"####")
+
+
+
+// === /SERIES ===
+v1 = sma(close, 8)
+v11 = sma(v1,8) 
+
+v2 = sma(open, 8)
+v12 = sma(v2,8) 
+// === PLOTTING ===
+
+// Get Alternate resolution Series if selected.
+closeSeriesAlt = security(tickerid, stratRes, v11, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+openSeriesAlt = security(tickerid, stratRes, v12, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+
+//
+// === ALERT conditions
+xlong       = crossover(closeSeriesAlt, openSeriesAlt)
+xshort      = crossunder(closeSeriesAlt, openSeriesAlt)
+longCond    = xlong   // alternative: longCond[1]? false : (xlong or xlong[1]) and close>closeSeriesAlt and close>=open
+shortCond   = xshort  // alternative: shortCond[1]? false : (xshort or xshort[1]) and close<closeSeriesAlt and close<=open
+// === /ALERT conditions.
+
+// === STRATEGY ===
+// stop loss
+
+ebar            = input(defval = 10000, title="Number of Bars for Back Testing", minval=0)
+//
+// Calculate how many mars since last bar
+tdays       = (timenow-time)/60000.0  // number of minutes since last bar
+tdays  := ismonthly? tdays/1440.0/5.0/4.3/interval : isweekly? tdays/1440.0/5.0/interval : isdaily? tdays/1440.0/interval : tdays/interval // number of bars since last bar
+
+
+// Make sure we are within the bar range, Set up entries and exit conditions
+if ((ebar==0 or tdays<=ebar))
+    strategy.entry("long", strategy.long, when=longCond==true )
+    strategy.entry("short", strategy.short, when=shortCond==true )
+ 
+
+// === /STRATEGY ===
+// eof
