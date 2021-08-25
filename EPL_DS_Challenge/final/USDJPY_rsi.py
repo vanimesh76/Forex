@@ -85,25 +85,11 @@ for i in range(5, len(a)):
             if pp >= 0.0:
                 profit.append(pp)
                 check = 0
-#             elif pp < 0.0:
-#                 up = up+1
-#                 if up > 1: 
-#                     profit.append(pp)
-#                     check = 0
-
-#             elif pp < -2.0:
-#                 profit.append(pp)
-#                 check = 0
-
             elif pp < 0.0:
                 up = up+1
-                if up == 1:
-                    k = pp
-                if up > 1:
-                    if pp > k:
-                        print("pass")
-                    else:
-                        profit.append(pp)
-                        check = 0
-                k = pp
+                if up > 1: 
+                    profit.append(pp)
+                    check = 0
+
+
                     #In live trade if loss still goes on to increase then close the trade before hand

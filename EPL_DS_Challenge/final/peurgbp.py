@@ -95,12 +95,13 @@ def follow(lot, signal, symbol, ticket, buy_price, order_type):
         # if df.iloc[-2].close != cl or df.iloc[-2].open != op:
         sell_price = df.iloc[-1].close
         pp = price_action(symbol, lot, buy_price, sell_price, order_type)
-        if pp >= 0.50:
+        if pp >= 0.10:
             result = Action_close(ticket, symbol, signal, lot)
             print(f"Close  Symbol-->{symbol} ||| result_comment-->{result.comment}")
             if result.comment == "Requote":
                 result = Action_close(ticket, symbol, signal, lot)
-                print(f"Close  Symbol-->{symbol} ||| result_comment-->{result.comment} ||| Re-Quoted")
+                print(f"Close  Symbol-->{symbol} ||| result_comment-->{result.comment} ||| Requoted")
+                print("Re-Quoted")
                 pass
             else:
                 break
@@ -144,7 +145,7 @@ def data_fetch(symbol):
         df = get_values(symbol)
 
 
-for symbol in ['GBPUSD']:#, 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
+for symbol in ['EURGBP']:#, 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
     df = get_values(symbol)
     p5 = threading.Thread(target=data_fetch, args=(symbol,))
     p5.start()
