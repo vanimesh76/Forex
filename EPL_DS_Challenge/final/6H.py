@@ -1,25 +1,23 @@
 import MetaTrader5 as mt5
 from pandas import DataFrame, to_datetime
 import time
-import threading
+from datetime import datetime
+import pytz
 
 mt5.initialize()
 global df
 
 
 def get_values(symbol):
-    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 20)
-
+    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H6, 0, 20)
     rates_frame = DataFrame(rates)
-    rates_frame['clsma']= rates_frame['close'].rolling(window=8).mean()
-    rates_frame['smaC']= rates_frame['clsma'].rolling(window=8).mean()
 
-    rates_frame['clsma']= rates_frame['open'].rolling(window=8).mean()
-    rates_frame['smaO']= rates_frame['clsma'].rolling(window=8).mean()
+    rates_frame['time']=to_datetime(rates_frame['time'], unit='s')
+    rates_frame = rates_frame.set_index('time')
+    # rates_frame['rsi'] = get_rsi(rates_frame['close'], 14)
 
-    # rates_frame['time']=to_datetime(rates_frame['time'], unit='s')
-    # rates_frame = rates_frame.set_index('time')
     return rates_frame
+
 
 def Action_close(ticket_no, symbol, signal, lot):
     try:
@@ -73,10 +71,10 @@ def Action(symbol, lot, signal):
         print(e)
 
 
-def run(symbol, df):
+def run(symbol):
     lot = 0.02
     check = 0
-    buy_check = 0
+    checks = 0
     buy_up = 0
     sell_up = 0
     buy = 1
@@ -84,51 +82,40 @@ def run(symbol, df):
     hour_passed = True
 
     print(symbol)            
-    
+
     while True:
         if hour_passed:
-            df = get_values(symbol)
-            if df.iloc[-2].smaC < df.iloc[-2].smaO:
+            t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
+            if t.hour in (0,6,12,18):
                 result_sell = Action(symbol, lot, sell)  #SELL Action
+                result_buy = Action(symbol, lot, buy)  #BUY Action
 
-                if buy_check == 1 and buy_up == 0:
+                if checks == 1:
                     result_buy = Action_close(result_buy.order, symbol, buy, lot)     #Action_close
-
                     if result_buy.comment == "Requote":
                         result_buy = Action_close(result_buy.order, symbol, buy, lot)
                         print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_buy.comment} ||| Requoted")
                     else:
                         print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_buy.comment}")
 
-                print(f"Symbol-->{symbol} ||| Type-->Sell ||| Ticket_No-->{result_sell.order} ||| result_comment-->{result_sell.comment}")
-                sell_up = 0
-                check = 1
-                buy_check = 0
-
-            if df.iloc[-2].smaC > df.iloc[-2].smaO:
-                result_buy = Action(symbol, lot, buy)  #BUY Action
-
-                if check == 1 and sell_up == 0:
+                if check == 1:
                     result_sell = Action_close(result_sell.order, symbol, sell, lot)   #Action_close
-                    print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_sell.comment}")
                     if result_sell.comment == "Requote":
                         result_sell = Action_close(result_sell.order, symbol, sell, lot)
                         print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_sell.comment} ||| Requoted")
+                    else:
+                        print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_sell.comment}")
 
+                print(f"Symbol-->{symbol} ||| Type-->Sell ||| Ticket_No-->{result_sell.order} ||| result_comment-->{result_sell.comment}")
                 print(f"Symbol-->{symbol} ||| Type-->Buy ||| Ticket_No-->{result_buy.order} ||| result_comment-->{result_buy.comment}")
-                buy_up = 0
-                buy_check = 1
-                check = 0
 
-            hour_passed = False
+                check = 1
+                checks = 1
+                hour_passed = False
 
-
-        ###############################################################
-        
-        if buy_check == 1 and buy_up == 0:
-            pp = mt5.positions_get(ticket=result_buy.order)[0]
-
-            if pp.profit > 1.0:
+        if check == 1:
+            pp = mt5.positions_get(ticket=result_buy.order)[0].profit
+            if pp > 0.40:
                 result_buy = Action_close(result_buy.order, symbol, buy, lot)     #Action_close
 
                 if result_buy.comment == "Requote":
@@ -136,43 +123,45 @@ def run(symbol, df):
                     print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_buy.comment} ||| Requoted")
                 else:
                     print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_buy.comment}")
-                buy_up = 1
+                check = 0
 
-        if sell_up == 0:
-            pp = mt5.positions_get(ticket=result_sell.order)[0]
-
-            if pp.profit >= 1.0:
+        if checks == 1:
+            pp = mt5.positions_get(ticket=result_sell.order)[0].profit
+            if pp >= 0.40:
                 result_sell = Action_close(result_sell.order, symbol, sell, lot)
-
+                
                 if result_sell.comment == "Requote":
                     result_sell = Action_close(result_sell.order, symbol, sell, lot)
                     print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_sell.comment} ||| Requoted")
                 else:
                     print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_sell.comment}")
-                sell_up = 1
+                checks = 0
 
-        a = to_datetime([pp.time], unit='s')
-        if sell_up == 1 or buy_up == 1:
-            time.sleep(60 - a.minute[0])
-            buy_up = 0
-            sell_up = 0
-            check = 0
-            buy_check = 0
         
-        if a.hour[0] != datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3')).hour:
+        if check == 0 and checks == 0:
+            t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
+            print(f"Hour--->{t.hour}")
+            if t.hour >= 0 and t.hour < 6:
+                print(6*60*60 - (t.hour*60*60 + t.minute*60))
+                time.sleep(6*60*60 - (t.hour*60*60 + t.minute*60))
+
+            elif t.hour >= 6 and t.hour < 12:
+                print(12*60*60 - (t.hour*60*60 + t.minute*60))
+                time.sleep(12*60*60 - (t.hour*60*60 + t.minute*60))
+
+            elif t.hour >= 12 and t.hour < 18:
+                print(18*60*60 - (t.hour*60*60 + t.minute*60))
+                time.sleep(18*60*60 - (t.hour*60*60 + t.minute*60))
+
+            elif t.hour >= 18 and t.hour < 24:
+                print(24*60*60 - (t.hour*60*60 + t.minute*60))
+                time.sleep(24*60*60 - (t.hour*60*60 + t.minute*60))
+
             hour_passed = True
 
 
-for symbol in ['EURGBP']:#, 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
-    run(symbol,df)
-
-
-
-##########################
-'''Intervene RSI 14 period'''
-############################
-
-
+for symbol in ['EURGBP']:
+    run(symbol)
 
 
 #EURGBP
@@ -181,6 +170,7 @@ for symbol in ['EURGBP']:#, 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
 
 #BUY_Signal when RSI crosses Above 40 mark wait for it to reach 60
 
+#-215.66
 
 #Trust the 1-Hour short if 1 Day Uncle signal is Red
 #And Trust Long if 1 Day signal is Green
