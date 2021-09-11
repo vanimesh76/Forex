@@ -155,11 +155,15 @@ def run(symbol):
     sell_check = 0
     buy_up = 0
     sell_up = 0
+    order_time = 0
 
     buy = 1
     sell = 0
 
     print(symbol)
+
+    # df = get_values(symbol)
+    # print(df.iloc[-2].nissOsc < df.iloc[-2].nissSignal)
 
     while True:
         df = get_values(symbol)
@@ -190,12 +194,14 @@ def run(symbol):
                         print(f"Close  Symbol-->{symbol} ||| Type-->Buy ||| result_comment-->{result_buy.comment} ||| Requoted")
                     else:
                         print(f"Close  Symbol-->{symbol} ||| Type-->Buy ||| result_comment-->{result_buy.comment}")
+                    
                     buy_up = 0
 
 
-                print(f"Symbol-->{symbol} ||| Ticket_No-->{result_sell.order}")
+                print(f"Symbol-->{symbol} ||| Type-->Sell  ||| Ticket_No-->{result_sell.order}")
                 sell_up = 1
                 sell_check = 1
+
                 buy_check = 0
 
             if df.iloc[-2].nissOsc > df.iloc[-2].nissSignal and buy_check == 0:
@@ -214,8 +220,10 @@ def run(symbol):
                 print(f"Symbol-->{symbol} ||| Type-->Buy ||| Ticket_No-->{result_buy.order} ||| result_comment-->{result_buy.comment}")
                 buy_up = 1
                 buy_check = 1
+
                 sell_check = 0
 
+            order_time = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3')).hour
             hour_passed = False
             print(f"hour_passed--->{hour_passed}")
 
@@ -236,26 +244,30 @@ def run(symbol):
         if sell_check == 1 and sell_up == 1:
             pp = mt5.positions_get(ticket=result_sell.order)[0].profit
             if pp > 1.0:
-                result_sell = Action_close(result_sell.order, symbol, buy, lot)     #Action_close
+                result_sell = Action_close(result_sell.order, symbol, sell, lot)     #Action_close
 
                 if result_sell.comment == "Requote":
-                    result_sell = Action_close(result_sell.order, symbol, buy, lot)
+                    result_sell = Action_close(result_sell.order, symbol, sell, lot)
                     print(f"Close  Symbol-->{symbol} ||| Type-->Sell ||| result_comment-->{result_sell.comment} ||| Requoted")
                 else:
                     print(f"Close  Symbol-->{symbol} ||| Type-->Sell ||| result_comment-->{result_sell.comment}")
                 sell_up = 0
 
+        t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
         if buy_check == 1 and buy_up == 0:
-            t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
             print(f"SLeep Time-->{((60*60 - t.minute*60) + 5)}")
             time.sleep((60*60 - t.minute*60) + 5)
             hour_passed = True
 
         if sell_check == 1 and sell_up == 0:
-            t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
             print(f"SLeep Time-->{((60*60 - t.minute*60) + 5)}")
             time.sleep((60*60 - t.minute*60) + 5)
             hour_passed = True
+        
+        if order_time != t.hour:
+            order_time = t.hour
+            hour_passed = True
+        
 
 for symbol in ['EURGBP']:
     run(symbol)

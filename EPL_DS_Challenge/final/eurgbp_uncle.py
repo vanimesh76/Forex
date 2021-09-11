@@ -1,14 +1,15 @@
 import MetaTrader5 as mt5
 from pandas import DataFrame, to_datetime
 import time
-import threading
+import pytz
+from datetime import datetime
 
 mt5.initialize()
 global df
 
 
 def get_values(symbol):
-    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 20)
+    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 30)
 
     rates_frame = DataFrame(rates)
     rates_frame['clsma']= rates_frame['close'].rolling(window=8).mean()
@@ -17,8 +18,8 @@ def get_values(symbol):
     rates_frame['clsma']= rates_frame['open'].rolling(window=8).mean()
     rates_frame['smaO']= rates_frame['clsma'].rolling(window=8).mean()
 
-    # rates_frame['time']=to_datetime(rates_frame['time'], unit='s')
-    # rates_frame = rates_frame.set_index('time')
+    rates_frame['time']=to_datetime(rates_frame['time'], unit='s')
+    rates_frame = rates_frame.set_index('time')
     return rates_frame
 
 def Action_close(ticket_no, symbol, signal, lot):
@@ -73,22 +74,38 @@ def Action(symbol, lot, signal):
         print(e)
 
 
-def run(symbol, df):
+def run(symbol):
     lot = 0.02
     check = 0
     buy_check = 0
+    sell_check = 0
     buy_up = 0
     sell_up = 0
+
     buy = 1
     sell = 0
-    hour_passed = True
+
+    while True:
+        df = get_values(symbol)
+        if df.iloc[-2].smaC < df.iloc[-2].smaO and df.iloc[-3].smaC >= df.iloc[-3].smaO:
+            hour_passed = True
+            break
+
+        elif df.iloc[-2].smaC > df.iloc[-2].smaO and df.iloc[-3].smaC <= df.iloc[-3].smaO:
+            hour_passed = True
+            break
+
+        t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
+        print(f"SLeep Time-->{((60*60 - t.minute*60) + 5)}")
+        time.sleep((60*60 - t.minute*60) + 5)
+
 
     print(symbol)            
     
     while True:
         if hour_passed:
             df = get_values(symbol)
-            if df.iloc[-2].smaC < df.iloc[-2].smaO:
+            if df.iloc[-2].smaC < df.iloc[-2].smaO and sell_check == 0:
                 result_sell = Action(symbol, lot, sell)  #SELL Action
 
                 if buy_check == 1 and buy_up == 0:
@@ -102,13 +119,15 @@ def run(symbol, df):
 
                 print(f"Symbol-->{symbol} ||| Type-->Sell ||| Ticket_No-->{result_sell.order} ||| result_comment-->{result_sell.comment}")
                 sell_up = 0
-                check = 1
-                buy_check = 0
+                sell_check = 1
 
-            if df.iloc[-2].smaC > df.iloc[-2].smaO:
+                buy_check = 0
+                order_time = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3')).hour
+
+            if df.iloc[-2].smaC > df.iloc[-2].smaO and buy_check == 0:
                 result_buy = Action(symbol, lot, buy)  #BUY Action
 
-                if check == 1 and sell_up == 0:
+                if sell_check == 1 and sell_up == 0:
                     result_sell = Action_close(result_sell.order, symbol, sell, lot)   #Action_close
                     print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_sell.comment}")
                     if result_sell.comment == "Requote":
@@ -118,7 +137,9 @@ def run(symbol, df):
                 print(f"Symbol-->{symbol} ||| Type-->Buy ||| Ticket_No-->{result_buy.order} ||| result_comment-->{result_buy.comment}")
                 buy_up = 0
                 buy_check = 1
-                check = 0
+
+                sell_check = 0
+                order_time = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3')).hour
 
             hour_passed = False
 
@@ -138,7 +159,7 @@ def run(symbol, df):
                     print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_buy.comment}")
                 buy_up = 1
 
-        if sell_up == 0:
+        if sell_check == 1 and sell_up == 0:
             pp = mt5.positions_get(ticket=result_sell.order)[0]
 
             if pp.profit >= 1.0:
@@ -151,21 +172,39 @@ def run(symbol, df):
                     print(f"Close  Symbol-->{symbol} ||| result_comment-->{result_sell.comment}")
                 sell_up = 1
 
-        a = to_datetime([pp.time], unit='s')
-        if sell_up == 1 or buy_up == 1:
-            time.sleep(60 - a.minute[0])
-            buy_up = 0
-            sell_up = 0
-            check = 0
-            buy_check = 0
-        
-        if a.hour[0] != datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3')).hour:
+
+        t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
+        if buy_check == 1 and buy_up == 1:
+            print(f"SLeep Time-->{((60*60 - t.minute*60) + 5)}")
+            time.sleep((60*60 - t.minute*60) + 5)
             hour_passed = True
 
+        if sell_check == 1 and sell_up == 1:
+            print(f"SLeep Time-->{((60*60 - t.minute*60) + 5)}")
+            time.sleep((60*60 - t.minute*60) + 5)
+            hour_passed = True
 
-for symbol in ['EURGBP']:#, 'USDJPY', 'CADJPY', 'EURUSD', 'EURGBP']:
-    run(symbol,df)
+        if order_time != t.hour:
+            order_time = t.hour
+            hour_passed = True
 
+for symbol in ['EURUSD']:
+    # run(symbol)
+
+    df = get_values(symbol)
+    for i in range(15, len(df)):
+        df = get_values(symbol)
+        if df.iloc[i].smaC < df.iloc[i].smaO and df.iloc[i-1].smaC >= df.iloc[i-1].smaO:
+            print("fdfdf")
+            print(df.iloc[i].name)
+            hour_passed = True
+            # break
+
+        elif df.iloc[i].smaC > df.iloc[i].smaO and df.iloc[i-1].smaC <= df.iloc[i-1].smaO:
+            print("gfgf")
+            print(df.iloc[i].name)
+            hour_passed = True
+            # break
 
 
 ##########################
