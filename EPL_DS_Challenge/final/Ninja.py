@@ -64,11 +64,11 @@ def niss_Fast(src):
     emaF10 = ema(src, 21)
     emaF11 = ema(src, 23)
     return list(map(lambda x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11:(x1+x2+x3+x4+x5+x6+x7+x8+x9+x10+x11)/11, \
-             emaF1[len(emaF1)-len(emaF11):], \
-             emaF2[len(emaF2)-len(emaF11):],  emaF3[len(emaF3)-len(emaF11):], emaF4[len(emaF4)-len(emaF11):], \
-            emaF5[len(emaF5)-len(emaF11):], emaF6[len(emaF6)-len(emaF11):], emaF7[len(emaF7)-len(emaF11):], \
-            emaF8[len(emaF8)-len(emaF11):], emaF9[len(emaF9)-len(emaF11):], emaF10[len(emaF10)-len(emaF11):], \
-            emaF11))
+                            emaF1[len(emaF1)-len(emaF11):], \
+                            emaF2[len(emaF2)-len(emaF11):],  emaF3[len(emaF3)-len(emaF11):], emaF4[len(emaF4)-len(emaF11):], \
+                            emaF5[len(emaF5)-len(emaF11):], emaF6[len(emaF6)-len(emaF11):], emaF7[len(emaF7)-len(emaF11):], \
+                            emaF8[len(emaF8)-len(emaF11):], emaF9[len(emaF9)-len(emaF11):], emaF10[len(emaF10)-len(emaF11):], \
+                            emaF11))
     
 def niss_Slow(src):
     emaS1 = ema(src, 25)
@@ -89,12 +89,12 @@ def niss_Slow(src):
     emaS16 = ema(src, 70)
     return list(map(lambda x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16: \
                     (x1+x2+x3+x4+x5+x6+x7+x8+x9+x10+x11+x12+x13+x14+x15+x16)/16, \
-         emaS1[len(emaS1)-len(emaS16):], \
-         emaS2[len(emaS2)-len(emaS16):],  emaS3[len(emaS3)-len(emaS16):], emaS4[len(emaS4)-len(emaS16):], \
-        emaS5[len(emaS5)-len(emaS16):], emaS6[len(emaS6)-len(emaS16):], emaS7[len(emaS7)-len(emaS16):], \
-        emaS8[len(emaS8)-len(emaS16):], emaS9[len(emaS9)-len(emaS16):], emaS10[len(emaS10)-len(emaS16):], \
-        emaS11[len(emaS11)-len(emaS16):], emaS12[len(emaS12)-len(emaS16):], emaS13[len(emaS13)-len(emaS16):], \
-                   emaS14[len(emaS14)-len(emaS16):], emaS15[len(emaS15)-len(emaS16):], emaS16))
+                    emaS1[len(emaS1)-len(emaS16):], \
+                    emaS2[len(emaS2)-len(emaS16):],  emaS3[len(emaS3)-len(emaS16):], emaS4[len(emaS4)-len(emaS16):], \
+                    emaS5[len(emaS5)-len(emaS16):], emaS6[len(emaS6)-len(emaS16):], emaS7[len(emaS7)-len(emaS16):], \
+                    emaS8[len(emaS8)-len(emaS16):], emaS9[len(emaS9)-len(emaS16):], emaS10[len(emaS10)-len(emaS16):], \
+                    emaS11[len(emaS11)-len(emaS16):], emaS12[len(emaS12)-len(emaS16):], emaS13[len(emaS13)-len(emaS16):], \
+                    emaS14[len(emaS14)-len(emaS16):], emaS15[len(emaS15)-len(emaS16):], emaS16))
 
 def Action_close(ticket_no, symbol, signal, lot):
     try:
@@ -161,9 +161,6 @@ def run(symbol):
     sell = 0
 
     print(symbol)
-
-    # df = get_values(symbol)
-    # print(df.iloc[-2].nissOsc < df.iloc[-2].nissSignal)
 
     while True:
         df = get_values(symbol)
