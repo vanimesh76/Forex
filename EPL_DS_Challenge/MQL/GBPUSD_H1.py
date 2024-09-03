@@ -9,13 +9,13 @@ mt5.initialize()
 
 
 def get_values(symbol):
-    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, 50)
+    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 100)
     rates_frame = pd.DataFrame(rates)
 
     rates_frame['time']=pd.to_datetime(rates_frame['time'], unit='s')
     rates_frame = rates_frame.set_index('time')
     
-    rates_frame['sma']= rates_frame['close'].rolling(window=10).mean()
+    rates_frame['sma']= rates_frame['close'].rolling(window=50).mean()
 
     return rates_frame
 
@@ -89,11 +89,11 @@ def run(symbol):
 
     while True:
         a = get_values(symbol)
-        if hour_passed:
+        if True:
             
-            order_time = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
-
-            if  order_time.hour <= 1 and a.iloc[-2].close < a.iloc[-2].sma and a.iloc[-3].close > a.iloc[-2].close and sell_check == 0:   
+#             order_time = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
+#  order_time.hour <= 1 and 
+            if a.iloc[-2].close <= a.iloc[-2].sma and  a.iloc[-2].open >= a.iloc[-2].sma and sell_check == 0:   
 
                 result_sell = Action(symbol, lot, sell)
                 print(f"Symbol-->{symbol} ||| Type-->Sell  ||| Ticket_No-->{result_sell.order}")
@@ -101,9 +101,9 @@ def run(symbol):
                 sell_check = 1
 
                 buy_check = 0
-                hour_passed = False
+#                 hour_passed = False
 
-            if order_time.hour <= 1 and a.iloc[-2].close > a.iloc[-2].sma and a.iloc[-3].close < a.iloc[-2].close and buy_check == 0:
+            elif a.iloc[-2].close >= a.iloc[-2].sma and a.iloc[-2].open <= a.iloc[-2].sma and buy_check == 0:
 
                 result_buy = Action(symbol, lot, buy)
                 print(f"Symbol-->{symbol} ||| Type-->Buy ||| Ticket_No-->{result_buy.order} ||| result_comment-->{result_buy.comment}")
@@ -111,12 +111,13 @@ def run(symbol):
 
                 sell_check = 0
 
-                hour_passed = False
+#                 hour_passed = False
 
             #############################################################
 
-        t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
-        if t.hour == 23 and sell_check == 1:
+#         t = datetime.fromtimestamp(time.time(), tz= pytz.timezone('Etc/GMT-3'))
+        pp = mt5.positions_get(ticket=result_sell.order)[0].profit
+        if pp<= -10.0 and sell_check == 1:
             result_sell = Action_close(result_sell.order, symbol, sell, lot)   #Action_close
             
             if result_sell.comment == "Requote":
@@ -125,11 +126,30 @@ def run(symbol):
             else:
                 print(f"Close  Symbol-->{symbol} ||| Type-->Sell ||| result_comment-->{result_sell.comment}")
             sell_check = 0
+        if pp >= 10.0 and sell_check == 1:
+            result_sell = Action_close(result_sell.order, symbol, sell, lot)   #Action_close
+            
 
-            hour_passed = True
+            if result_sell.comment == "Requote":
+                result_sell = Action_close(result_sell.order, symbol, sell, lot)
+                print(f"Close  Symbol-->{symbol} ||| Type-->Sell ||| result_comment-->{result_sell.comment} ||| Requoted")
+            else:
+                print(f"Close  Symbol-->{symbol} ||| Type-->Sell ||| result_comment-->{result_sell.comment}")
+            sell_check = 0
+# 
+#             hour_passed = True
 
 
-        if t.hour == 23 and buy_check == 1:
+        if  pp<= -10.0 and buy_check == 1:
+            result_buy = Action_close(result_buy.order, symbol, buy, lot)     #Action_close
+
+            if result_buy.comment == "Requote":
+                result_buy = Action_close(result_buy.order, symbol, buy, lot)
+                print(f"Close  Symbol-->{symbol} ||| Type-->Buy ||| result_comment-->{result_buy.comment} ||| Requoted")
+            else:
+                print(f"Close  Symbol-->{symbol} ||| Type-->Buy ||| result_comment-->{result_buy.comment}")  
+            buy_check = 0
+        if pp >= 10.0 and buy_check == 1:
             result_buy = Action_close(result_buy.order, symbol, buy, lot)     #Action_close
 
             if result_buy.comment == "Requote":
@@ -139,11 +159,12 @@ def run(symbol):
                 print(f"Close  Symbol-->{symbol} ||| Type-->Buy ||| result_comment-->{result_buy.comment}")  
             buy_check = 0
 
-            hour_passed = True
+#             hour_passed = True
+        time.sleep(1)
 
 
-        print(f"Sleep Time-->{((60*60 - t.minute*60) + 1)}")
-        time.sleep((60*60 - t.minute*60) + 1)
+#         print(f"Sleep Time-->{((60*60 - t.minute*60) + 1)}")
+#         time.sleep((60*60 - t.minute*60) + 1)
 
 for symbol in ['GBPUSD']:
     run(symbol)
